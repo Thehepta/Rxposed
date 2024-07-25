@@ -15,163 +15,6 @@
 // user lib
 #include "PtraceUtils.h"
 
-
-struct Module {
-    char name[256];
-    uintptr_t start_address;
-    uintptr_t end_address;
-    uint8_t perms;
-};
-
-
-
-int map_hide(pid_t pid,char *path) {
-    char maps_file_path[255];
-    sprintf(maps_file_path, "/proc/%d/maps", pid);
-    FILE* maps_file = fopen(maps_file_path, "r");
-    if (!maps_file) {
-        printf("[-][function:%s] Failed to open maps file: %s\n",__func__ ,maps_file_path);
-        return -1;
-    }
-    char line[256];
-    void *mprotect_addr = get_remote_func_addr(pid, process_libs.libc_path, (void *) mprotect);
-    void *memcpy_addr = get_remote_func_addr(pid, process_libs.libc_path, (void *) memcpy);
-    void *mremap_addr = get_remote_func_addr(pid, process_libs.libc_path, (void *) mremap);
-    void *mmap_addr = get_mmap_address(pid);
-
-    while (fgets(line, sizeof(line), maps_file)) {
-        char address_range[256];
-        char permissions[256];
-        char offset[256];
-        char device[256];
-        char inode[256];
-        char pathname[256];
-
-        if (sscanf(line, "%s %s %s %s %s %s", address_range, permissions, offset, device, inode, pathname) == 6) {
-            char start_address_str[256];
-            char end_address_str[256];
-
-            sscanf(address_range, "%[^-]-%s", start_address_str, end_address_str);
-
-            unsigned long long start_address = strtoull(start_address_str, NULL, 16);
-            unsigned long long end_address = strtoull(end_address_str, NULL, 16);
-
-            struct Module module;
-            memset(&module,0,sizeof(struct Module));
-            strncpy(module.name, pathname, strlen(pathname));
-            module.start_address = start_address;
-            module.end_address = end_address;
-            if(strncmp(module.name,path, strlen(module.name))==0){
-                module.perms = 0;
-                if (permissions[0] == 'r')
-                    module.perms |= PROT_READ;
-                if (permissions[1] == 'w')
-                    module.perms |= PROT_WRITE;
-                if (permissions[2] == 'x')
-                    module.perms |= PROT_EXEC;
-                printf("[+][function:%s] %s,perms:%d Address: %llx-%llx\n",__func__ , module.name,module.perms, module.start_address, module.end_address);
-                size_t size = module.end_address - module.start_address;
-                void *addr = reinterpret_cast<void *>(module.start_address);
-
-                do {
-
-                    struct pt_regs CurrentRegs, OriginalRegs;
-                    if (ptrace_getregs(pid, &CurrentRegs) != 0){
-                        break;
-                    }
-                    // 保存原始寄存器
-                    memcpy(&OriginalRegs, &CurrentRegs, sizeof(CurrentRegs));
-
-
-                    //  1.  void *copy = mmap(nullptr, size, PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-                    long mmap_parameters[6];
-                    mmap_parameters[0] = NULL; // 设置为NULL表示让系统自动选择分配内存的地址
-                    mmap_parameters[1] = size; // 映射内存的大小
-                    mmap_parameters[2] = PROT_WRITE ; // 表示映射内存区域 可读|可写|可执行
-                    mmap_parameters[3] = MAP_ANONYMOUS | MAP_PRIVATE; // 建立匿名映射
-                    mmap_parameters[4] = -1; //  若需要映射文件到内存中，则为文件的fd
-                    mmap_parameters[5] = 0; //文件映射偏移量
-
-                    // 调用远程进程的mmap函数 建立远程进程的内存映射 在目标进程中为libxxx.so分配内存
-                    if (ptrace_call(pid, (uintptr_t) mmap_addr, mmap_parameters, 6, &CurrentRegs) == -1) {
-                        printf("[-][function:%s] Call Remote mmap Func Failed, err:%s\n", __func__ ,strerror(errno));
-                        return -1;
-                    }
-                    void *copy = (void *)ptrace_getret(&CurrentRegs);
-
-                    //  2 .if ((module.perms & PROT_READ) == 0) {
-                    //        mprotect(addr, size, PROT_READ);
-                    //    }
-
-                    if ((module.perms & PROT_READ) == 0) {
-
-                        long mprotect_parameters[3];
-                        mprotect_parameters[0] = reinterpret_cast<long>(addr);
-                        mprotect_parameters[1] = size;
-                        mprotect_parameters[2] = PROT_READ;
-                        if (ptrace_call(pid, (uintptr_t) mprotect_addr, mprotect_parameters, 3, &CurrentRegs) == -1) {
-                            printf("[-][function:%s] Call Remote mprotect Func Failed, err:%s\n",__func__ ,strerror(errno));
-                            return -1;
-                        }
-                    }
-
-//     3.memcpy(copy, addr, size);
-
-                    long memcpy_parameters[3];
-                    memcpy_parameters[0] = reinterpret_cast<long>(copy);
-                    memcpy_parameters[1] = reinterpret_cast<long>(addr);
-                    memcpy_parameters[2] = size;
-                    if (ptrace_call(pid, (uintptr_t) memcpy_addr, memcpy_parameters, 3, &CurrentRegs) == -1) {
-                        printf("[-][function:%s] Call Remote memcpy Func Failed, err:%s\n", __func__ ,strerror(errno));
-                        return -1;
-                    }
-
-//    4.mremap(copy, size, size, MREMAP_MAYMOVE | MREMAP_FIXED, addr);
-
-                    long mremap_parameters[5];
-                    mremap_parameters[0] = reinterpret_cast<long>(copy);
-                    mremap_parameters[1] = size;
-                    mremap_parameters[2] = size;
-                    mremap_parameters[3] = MREMAP_MAYMOVE | MREMAP_FIXED;
-                    mremap_parameters[4] = reinterpret_cast<long>(addr);
-                    if (ptrace_call(pid, (uintptr_t) mremap_addr, mremap_parameters, 5, &CurrentRegs) == -1) {
-                        printf("[-][function:%s] Call Remote mmap Func Failed, err:%s\n",__func__ ,strerror(errno));
-                        return -1;
-                    }
-
-
-//      5. mprotect(addr, size, module.perms);
-                    long mprotect_parameters[3];
-                    mprotect_parameters[0] = reinterpret_cast<long>(addr);
-                    mprotect_parameters[1] = size;
-                    mprotect_parameters[2] = module.perms;
-                    if (ptrace_call(pid, (uintptr_t) mprotect_addr, mprotect_parameters, 3, &CurrentRegs) == -1) {
-                        printf("[-][function:%s] Call Remote mprotect Func Failed, err:%s\n",__func__ ,strerror(errno));
-                        return -1;
-                    }
-
-
-                    if (ptrace_setregs(pid, &OriginalRegs) == -1) {
-                        printf("[-][function:%s] Recover reges failed\n",__func__ );
-                        return -1;
-                    }
-
-                    ptrace_getregs(pid, &CurrentRegs);
-                    if (memcmp(&OriginalRegs, &CurrentRegs, sizeof(CurrentRegs)) != 0) {
-                        printf("[-][function:%s] Set Regs Error\n",__func__ );
-                        return -1;
-                    }
-
-                } while (false);
-
-            }
-        }
-    }
-    fclose(maps_file);
-    return 0;
-}
-
-
 /**
  * @brief 通过远程直接调用dlopen/dlsym的方法ptrace注入so模块到远程进程中
  *
@@ -391,7 +234,7 @@ struct process_inject{
  * @param argc
  * @param argv
  */
-void handle_parameter(int argc, char *argv[]){
+pid_t handle_parameter(int argc, char *argv[]){
     pid_t pid = 0;
     int index = 0;
     char *pkg_name = NULL;
@@ -509,7 +352,7 @@ void handle_parameter(int argc, char *argv[]){
     }
     printf("[+] hidemaps is %d\n", process_inject.hidemaps);
     printf("[+] dlclose is %d\n", process_inject.dlclose);
-
+    return pid;
 }
 
 /**
@@ -522,28 +365,31 @@ void handle_parameter(int argc, char *argv[]){
 int init_inject(int argc, char *argv[]){
 
     // 参数处理
-    handle_parameter(argc, argv);
-
-    int selinux_status = get_selinux_status();
-    printf("[+][SELinux] selinux statu：%d\n",selinux_status);
-
-    // SELinux处理
-    if (selinux_status == 1){ // 为严格模式
-        printf("[+][SELinux] SELinux is Enforcing\n");
-        if (set_selinux_state(0)){
-            printf("[+][SELinux] Selinux has been changed to Permissive\n");
-        }
-    } else { // 已经为宽容模式 或者 关闭状态
-        printf("[+][SELinux] SELinux is Permissive or Disabled\n");
+    pid_t traget_pid = handle_parameter(argc, argv);
+    if(!init_system_lib_Info(traget_pid)){
+        printf("[-][InitLib] init_system_lib_Info Failed \n");
     }
-//    int re;
-    int re = inject_remote_process(process_inject.pid, process_inject.lib_path,
-                                   process_inject.func_symbols, process_inject.func_args,
-                                   process_inject.hidemaps, process_inject.dlclose);
-    sleep(1);
-    // 如果原SELinux状态为严格 则恢复状态
-
-    printf("[+][SELinux] Restore selinux statu\n");
-    set_selinux_state(selinux_status);
-    return re;
+//    int selinux_status = get_selinux_status();
+//    printf("[+][SELinux] selinux statu：%d\n",selinux_status);
+//
+//    // SELinux处理
+//    if (selinux_status == 1){ // 为严格模式
+//        printf("[+][SELinux] SELinux is Enforcing\n");
+//        if (set_selinux_state(0)){
+//            printf("[+][SELinux] Selinux has been changed to Permissive\n");
+//        }
+//    } else { // 已经为宽容模式 或者 关闭状态
+//        printf("[+][SELinux] SELinux is Permissive or Disabled\n");
+//    }
+////    int re;
+//    int re = inject_remote_process(process_inject.pid, process_inject.lib_path,
+//                                   process_inject.func_symbols, process_inject.func_args,
+//                                   process_inject.hidemaps, process_inject.dlclose);
+//    sleep(1);
+//    // 如果原SELinux状态为严格 则恢复状态
+//
+//    printf("[+][SELinux] Restore selinux statu\n");
+//    set_selinux_state(selinux_status);
+//    return re;
+    return true;
 }

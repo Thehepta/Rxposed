@@ -25,46 +25,90 @@ struct process_libs{
     const char *libdl_path;
 } process_libs = {"","",""};
 
+#define LINE_MAX 2048
+
+#ifdef __LP64__
+#define __PRI_64_prefix "l"
+#define __PRI_PTR_prefix "l"
+#else
+#define __PRI_64_prefix "ll"
+#define __PRI_PTR_prefix
+#endif
+
+#define PRIxPTR __PRI_PTR_prefix "x" /* uintptr_t */
 
 
 /**
  * @brief 处理各架构预定义的库文件
  */
 
+bool init_system_lib_Info(pid_t pid){ // __attribute__((constructor))修饰 最先执行
 
+    char maps_path[30];
+    char *path;
+    FILE *fp;
+    char line[PATH_MAX];
+    sprintf(maps_path, "/proc/%d/maps", pid);
+    fp = fopen(maps_path, "r");
+    char libc_path[1024];
 
-__unused __attribute__((constructor(101)))
-void handle_libs(){ // __attribute__((constructor))修饰 最先执行
-    char sdk_ver[32];
-    __system_property_get("ro.build.version.sdk", sdk_ver);
-// 系统lib路径
-#if defined(__aarch64__) || defined(__x86_64__)
-    // 在安卓10(包含安卓10)以上 lib路径有所变动
-    if ( atoi(sdk_ver) >=  __ANDROID_API_Q__){
-        process_libs.libc_path = "/apex/com.android.runtime/lib64/bionic/libc.so";
-        process_libs.linker_path = "/apex/com.android.runtime/bin/linker64";
-        process_libs.libdl_path = "/apex/com.android.runtime/lib64/bionic/libdl.so";
-    } else {
-        process_libs.libc_path = "/system/lib64/libc.so";
-        process_libs.linker_path = "/system/bin/linker64";
-        process_libs.libdl_path = "/system/lib64/libdl.so";
+    if (fp == NULL) {
+        perror("fopen /proc/target/pid failed");
+        exit(EXIT_FAILURE);
     }
-#else
-    // 在安卓10(包含安卓10)以上 lib路径有所变动
-    if (atoi(sdk_ver) >=  __ANDROID_API_Q__){
-        process_libs.libc_path = "/apex/com.android.runtime/lib/bionic/libc.so";
-        process_libs.linker_path = "/apex/com.android.runtime/bin/linker";
-        process_libs.libdl_path = "/apex/com.android.runtime/lib/bionic/libdl.so";
-    } else {
-        process_libs.libc_path = "/system/lib/libc.so";
-        process_libs.linker_path = "/system/bin/linker";
-        process_libs.libdl_path = "/system/lib/libdl.so";
+    while (!feof(fp)) {
+        char line_buffer[PATH_MAX + 1];
+        fgets(line_buffer, PATH_MAX, fp);
+        printf("%s\n",line_buffer);
+        // ignore the rest of characters
+//        if (strlen(line_buffer) == PATH_MAX && line_buffer[PATH_MAX] != '\n') {
+//            // Entry not describing executable data. Skip to end of line to set up
+//            // reading the next entry.
+//            int c;
+//            do {
+//                c = getc(fp);
+//            } while ((c != EOF) && (c != '\n'));
+//            if (c == EOF)
+//                break;
+//        }
+//
+//
+//        uintptr_t region_start, region_end;
+//        uintptr_t region_offset;
+//        char permissions[5] = {'\0'}; // Ensure NUL-terminated string.
+//        uint8_t dev_major = 0;
+//        uint8_t dev_minor = 0;
+//        long inode = 0;
+//        int path_index = 0;
+//
+//        if (sscanf(line_buffer,
+//                   "%" PRIxPTR "-%" PRIxPTR " %4c "
+//                                            "%" PRIxPTR " %hhx:%hhx %ld %n",
+//                &region_start, &region_end, permissions, &region_offset, &dev_major, &dev_minor, &inode,
+//                &path_index) < 7) {
+////            printf("/proc/self/maps parse failed!");
+////            fclose(fp);
+////            return false;
+//        }
+//
+//        char *path_buffer = line_buffer + path_index;
+//        if (*path_buffer == 0 || *path_buffer == '\n' || *path_buffer == '[')
+//            continue;
+//
+//        // strip
+//        if (path_buffer[strlen(path_buffer) - 1] == '\n') {
+//            path_buffer[strlen(path_buffer) - 1] = 0;
+//        }
+//        strncpy(libc_path, path_buffer, strlen(path_buffer) - 1);
+//        printf("%s\n",libc_path);
+
     }
-#endif
-    printf("[+] libc_path is %s\n", process_libs.libc_path);
-    printf("[+] linker_path is %s\n", process_libs.linker_path);
-    printf("[+] libdl_path is %s\n", process_libs.libdl_path);
-    printf("[+] system libs is OK\n");
+
+    return true;
+//    printf("[+] libc_path is %s\n", process_libs.libc_path);
+//    printf("[+] linker_path is %s\n", process_libs.linker_path);
+//    printf("[+] libdl_path is %s\n", process_libs.libdl_path);
+//    printf("[+] system libs is OK\n");
 }
 //不能用文件写入的方式，经过测试会有延迟问题，设置了以后代码会立即执行，这个时候，selinux策略还没有生效导致注入失败
 int get_selinux_status(){

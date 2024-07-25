@@ -15,6 +15,7 @@ project("status")
 # Gradle automatically packages shared libraries with your APK.
 
 add_subdirectory(rxposed)
+add_subdirectory(hookInit)
 include_directories(rxposed)
 include_directories(./)
 

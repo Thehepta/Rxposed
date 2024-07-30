@@ -6,7 +6,6 @@
 #include <locale>
 #include <linux/ashmem.h>
 #include "linker.h"
-
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
@@ -131,48 +130,12 @@ soinfo* find_containing_library(const void* p) {
 }
 
 
-int memfd_create(const char* name, unsigned int flags) {
-    // Check kernel version supports memfd_create(). Some older kernels segfault executing
-    // memfd_create() rather than returning ENOSYS (b/116769556).
-    static constexpr int kRequiredMajor = 3;
-    static constexpr int kRequiredMinor = 17;
-    struct utsname uts;
-    int major, minor;
-    if (uname(&uts) != 0 ||
-        strcmp(uts.sysname, "Linux") != 0 ||
-        sscanf(uts.release, "%d.%d", &major, &minor) != 2 ||
-        (major < kRequiredMajor || (major == kRequiredMajor && minor < kRequiredMinor))) {
-        errno = ENOSYS;
-        return -1;
-    }
-    return syscall(__NR_memfd_create, name, flags);
-}
 
-
-
-
-uint8_t * Creatememfd(int *fd, int size){
-
-    *fd = memfd_create("test", MFD_CLOEXEC);
-    if (*fd < 0) {
-        perror("Creatememfd Filede: open /dev/ashmem failed");
-        exit(EXIT_FAILURE);
-    }
-
-    ftruncate(*fd, size);
-
-    uint8_t *ptr = static_cast<uint8_t *>(mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, *fd,0));
-    if (ptr == MAP_FAILED) {
-        perror("mmap");
-        exit(EXIT_FAILURE);
-    }
-    return ptr;
-}
 
 
 
 //只支持单so，删除互相依赖处理
-soinfo* find_library(std::vector<LoadTask*> &load_tasks,const char *soname) {
+soinfo* find_library(const char *soname) {
 
 //    LoadTask* find_soinfo = nullptr;
 //    for (auto&& task : load_tasks) {
@@ -212,7 +175,7 @@ const char* fix_dt_needed(const char* dt_needed, const char* sopath __unused) {
 }
 
 
-void LoadTask::soload(std::vector<LoadTask *> &load_tasks, JNIEnv *pEnv) {
+void LoadTask::soload( ) {
 
     SymbolLookupList lookup_list;
 
@@ -220,7 +183,7 @@ void LoadTask::soload(std::vector<LoadTask *> &load_tasks, JNIEnv *pEnv) {
         if (d->d_tag == DT_NEEDED) {
             const char* name = fix_dt_needed(get_elf_reader().get_string(d->d_un.d_val), get_elf_reader().name());
             LOGE("NEED name: %s",name);
-            soinfo* system_si = find_library(load_tasks, name);
+            soinfo* system_si = find_library(name);
             soinfo *custom_si  = new soinfo();
             custom_si->set_soname(name);
             custom_si->transform(system_si);
@@ -251,15 +214,15 @@ void LoadTask::soload(std::vector<LoadTask *> &load_tasks, JNIEnv *pEnv) {
     }
 }
 
-void LoadTask::init_call(JNIEnv *pEnv, jobject g_currentDexLoad) {
+void call_JNI_OnLoad(soinfo *si, JNIEnv *pEnv, jobject g_currentDexLoad) {
 
 
     SymbolName symbol_JNI_OnLoad("JNI_OnLoad");
-    const ElfW(Sym)* sym = get_soinfo()->find_symbol_by_name(symbol_JNI_OnLoad, nullptr);
+    const ElfW(Sym)* sym = si->find_symbol_by_name(symbol_JNI_OnLoad, nullptr);
     if(sym== nullptr){
         return;
     }
-    int(*JNI_OnLoadFn)(JavaVM*, void*) = ( int(*)(JavaVM*, void*))(sym->st_value+get_soinfo()->load_bias);
+    int(*JNI_OnLoadFn)(JavaVM*, void*) = ( int(*)(JavaVM*, void*))(sym->st_value + si->load_bias);
 
     JavaVM *vm;
     pEnv->GetJavaVM(reinterpret_cast<JavaVM **>(&vm));
@@ -274,174 +237,9 @@ void LoadTask::hack() {
 
 
 
-//void LoadTask::hideso() {
-//
-//    solist_remove_soinfo(this->get_soinfo());
-//
-//}
 
 
 
-
-
-
-jobject hideLoadApkModule(JNIEnv *env, mz_zip_archive& zip_archive){
-
-    jobject currentDexLoad = nullptr;
-    auto classloader = env->FindClass("java/lang/ClassLoader");
-    auto getsyscl_mid = env->GetStaticMethodID(classloader, "getSystemClassLoader", "()Ljava/lang/ClassLoader;");
-    auto sys_classloader = env->CallStaticObjectMethod(classloader, getsyscl_mid);
-
-    if (!sys_classloader){
-        LOGE("getSystemClassLoader failed!!!");
-        return nullptr;
-    }
-    auto in_memory_classloader = env->FindClass("dalvik/system/InMemoryDexClassLoader");
-    auto initMid = env->GetMethodID(in_memory_classloader, "<init>", "([Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V");
-    auto byte_buffer_class = env->FindClass("java/nio/ByteBuffer");
-
-
-    std::unordered_map<const soinfo*, ElfReader> readers_map;
-    std::vector<LoadTask*> load_tasks;
-    std::vector<jobject> load_dexs;
-
-    std::vector<ApkNativeInfo> vec_apkNativeInfo;
-    int file_count = (int)mz_zip_reader_get_num_files(&zip_archive);
-    for (int i = 0; i < file_count; i++) {
-        mz_zip_archive_file_stat file_stat;
-        if (!mz_zip_reader_file_stat(&zip_archive, i, &file_stat)) {
-            printf("Could not retrieve file info.\n");
-            mz_zip_reader_end(&zip_archive);
-            return nullptr;
-        }
-        if(strstr(file_stat.m_filename,APK_NATIVE_LIB)!= NULL) {
-            int fd;
-            uint8_t * somem_addr = Creatememfd(&fd, file_stat.m_uncomp_size);
-
-            if (!somem_addr) {
-                printf("Failed to allocate memory.\n");
-                mz_zip_reader_end(&zip_archive);
-                return nullptr;
-            }
-            if (!mz_zip_reader_extract_to_mem(&zip_archive, i, somem_addr, file_stat.m_uncomp_size, 0)) {
-                printf("Failed to extract file.\n");
-                mz_zip_reader_end(&zip_archive);
-                return nullptr;
-            }
-
-            LoadTask* task =  new LoadTask(file_stat.m_filename, nullptr, nullptr, &readers_map);
-            task->set_fd(fd, false);
-            task->set_file_offset(0);
-            task->set_file_size(file_stat.m_uncomp_size);
-            load_tasks.push_back(task);
-//            printf("Filename: \"%s\", Comment: \"%s\", Uncompressed size: %llu\n",file_stat.m_filename, file_stat.m_comment ? file_stat.m_comment : "",(mz_uint64) file_stat.m_uncomp_size);
-        }
-        if(strstr(file_stat.m_filename, ".dex") != NULL){
-            uint8_t *file_data = (unsigned char *)malloc(file_stat.m_uncomp_size);
-            if (!file_data) {
-                printf("Memory allocation failed\n");
-                mz_zip_reader_end(&zip_archive);
-                return nullptr;
-            }
-            if (!mz_zip_reader_extract_to_mem(&zip_archive, i, file_data, file_stat.m_uncomp_size, 0)) {
-                printf("Failed to extract file\n");
-                free(file_data);
-                mz_zip_reader_end(&zip_archive);
-                return nullptr;
-            }
-            auto dex_buffer = env->NewDirectByteBuffer(file_data, file_stat.m_uncomp_size);
-            load_dexs.push_back(dex_buffer);
-        }
-    }
-    mz_zip_reader_end(&zip_archive);
-
-    jobjectArray byteBuffers = env->NewObjectArray(load_dexs.size(), byte_buffer_class, NULL);
-
-    for (size_t i = 0; i<load_dexs.size(); ++i) {
-        jobject load_dex = load_dexs[i];
-        env->SetObjectArrayElement(byteBuffers, i, load_dex);
-    }
-    currentDexLoad = env->NewObject(in_memory_classloader, initMid, byteBuffers, sys_classloader);
-    if (currentDexLoad != nullptr ) {
-
-        jobject g_currentDexLoad =  env->NewGlobalRef(currentDexLoad);
-//        linker_protect();
-        for (size_t i = 0; i<load_tasks.size(); ++i) {
-
-            LoadTask* task = load_tasks[i];
-//            soinfo* si = soinf_alloc_fun(g_default_namespace, ""/*real path*/, nullptr, 0, RTLD_GLOBAL);
-            soinfo* si = new soinfo(nullptr, ""/*real path*/, nullptr, 0, RTLD_GLOBAL);
-            if (si == nullptr) {
-                return nullptr;
-            }
-            task->set_soinfo(si);
-
-            if (!task->read()) {
-//            soinfo_free(si);
-                task->set_soinfo(nullptr);
-                return nullptr;
-            }
-            const ElfReader& elf_reader = task->get_elf_reader();
-            for (const ElfW(Dyn)* d = elf_reader.dynamic(); d->d_tag != DT_NULL; ++d) {
-                if (d->d_tag == DT_RUNPATH) {
-                    si->set_dt_runpath(elf_reader.get_string(d->d_un.d_val));
-                }
-                if (d->d_tag == DT_SONAME) {
-                    si->set_soname(elf_reader.get_string(d->d_un.d_val));
-                }
-            }
-        }
-
-
-        for (auto&& task : load_tasks) {
-            task->soload(load_tasks, env);
-            task->init_call(env, g_currentDexLoad);
-            task->hack();
-            delete task;
-        }
-
-//        linker_unprotect();
-        env->DeleteGlobalRef(g_currentDexLoad);
-        return currentDexLoad;
-    } else{
-        return nullptr;
-    }
-}
-
-
-
-
-jobject FilehideLoadApkModule(JNIEnv *env, char * apkSource){
-
-
-    mz_zip_archive zip_archive;
-    memset(&zip_archive, 0, sizeof(zip_archive));
-
-    mz_bool status = mz_zip_reader_init_file(&zip_archive, apkSource, 0);
-    if (!status) {
-        printf("Could not initialize zip reader.\n");
-        return nullptr;
-    }
-    return hideLoadApkModule(env,zip_archive);
-}
-
-
-jobject memhideLoadApkModule(JNIEnv *env, unsigned char *zip_data, size_t zip_size) {
-
-
-    // 使用 miniz 库解压缩内存中的 zip 文件
-    mz_zip_archive zip_archive;
-    memset(&zip_archive, 0, sizeof(zip_archive));
-    mz_bool status = mz_zip_reader_init_mem(&zip_archive, zip_data, zip_size, 0);
-    if (!status) {
-        printf("Could not initialize zip reader.\n");
-        return nullptr;
-    }
-    jobject resutl_classloader = hideLoadApkModule(env,zip_archive);
-    free(zip_data); // 释放内存
-    return resutl_classloader;
-
-}
 
 uintptr_t ToPathLoadSoGetSymbolAddr(char * sopath,char *topath,char*call_arg){
 
@@ -450,6 +248,9 @@ uintptr_t ToPathLoadSoGetSymbolAddr(char * sopath,char *topath,char*call_arg){
 uintptr_t ToMemLoadSoGetSymbolAddr(char * sopath,char*call_arg){
 
 }
+
+
+
 
 
 

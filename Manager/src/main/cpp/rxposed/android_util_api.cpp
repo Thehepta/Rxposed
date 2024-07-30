@@ -5,7 +5,7 @@
 
 #include <dlfcn.h>
 #include "android_util_api.h"
-#include "hideload/linker.h"
+#include "hideload/entry.h"
 
 using namespace std;
 

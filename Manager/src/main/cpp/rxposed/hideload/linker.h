@@ -5,12 +5,11 @@
 #pragma once
 
 #include <dlfcn.h>
-
+#include "miniz.h"
 #include <inttypes.h>
 #include <link.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "miniz.h"
 #include "linker_phdr.h"
 #include "linker_soinfo.h"
 #include<unordered_map>
@@ -25,6 +24,13 @@
 #define APK_NATIVE_LIB "lib/armeabi-v7a"
 #endif
 
+struct ApkNativeInfo {
+    mz_zip_archive_file_stat file_stat;
+    uint8_t * somem_addr;
+    std::string libname;
+    int fd;
+};
+
 
 soinfo* find_all_library_byname(const char* soname) ;
 soinfo* find_system_library_byname(const char* soname);
@@ -36,14 +42,8 @@ soinfo* find_system_library_byname(const char* soname);
 #define SUPPORTED_DT_FLAGS_1 (DF_1_NOW | DF_1_GLOBAL | DF_1_NODELETE | DF_1_PIE)
 
 
-struct ApkNativeInfo {
-    mz_zip_archive_file_stat file_stat;
-    uint8_t * somem_addr;
-    std::string libname;
-    int fd;
-};
-jobject FilehideLoadApkModule(JNIEnv *env, char * apkSource);
-jobject memhideLoadApkModule(JNIEnv *env, unsigned char *apkSource, size_t i);
+
+
 
 #define PAGE_START(x) ((x) & PAGE_MASK)
 
@@ -181,9 +181,7 @@ public:
         return needed_by_;
     }
 
-    void soload(std::vector<LoadTask *> &load_tasks, JNIEnv *pEnv);
-    void init_call(JNIEnv *pEnv, jobject pJobject);
-//    void hideso();
+    void soload();
 
     void hack();
 
@@ -200,6 +198,7 @@ private:
     std::unordered_map<const soinfo*, ElfReader>* elf_readers_map_;
     // TODO(dimitry): needed by workaround for http://b/26394120 (the grey-list)
     bool is_dt_needed_;
+
     // END OF WORKAROUND
     const android_namespace_t* const start_from_;
 
@@ -241,6 +240,8 @@ struct linker_JavaVM:public _JavaVM{
 //    { return functions->GetEnv(this, env, version); }
 
 };
+
+void call_JNI_OnLoad(soinfo *si, JNIEnv *pEnv, jobject g_currentDexLoad);
 
 
 

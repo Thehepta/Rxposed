@@ -45,7 +45,8 @@ add_library( # Sets the name of the library.
         jni_hook.cpp
         soinfo_12_transform.cpp
         soinfo_11_transform.cpp
-        soinfo_121_transform.cpp
+        soinfo_12L_transform.cpp
+        entry.cpp
         )
 
 

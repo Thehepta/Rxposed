@@ -14,7 +14,7 @@
 #include "linker_debug.h"
 #include "soinfo_11_transform.h"
 #include "soinfo_12_transform.h"
-#include "soinfo_121_transform.h"
+#include "soinfo_12L_transform.h"
 #include "sys/ifunc.h"
 #include <sys/auxv.h>
 

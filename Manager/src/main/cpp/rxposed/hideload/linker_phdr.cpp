@@ -621,8 +621,7 @@ bool ElfReader::LoadSegments() {
             void* seg_addr = mmap64(reinterpret_cast<void*>(seg_page_start),
                                     file_length,
                                     prot,
-                                    MAP_FIXED|MAP_PRIVATE,
-                                    fd_,
+                                    MAP_FIXED|MAP_PRIVATE,fd_,
                                     file_offset_ + file_page_start);
             if (seg_addr == MAP_FAILED) {
                 DL_ERR("couldn't map \"%s\" segment %zd: %s", name_.c_str(), i, strerror(errno));

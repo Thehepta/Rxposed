@@ -121,11 +121,6 @@ static std::vector<RuntimeModule> & getProcessMapWithProcMaps(pid_t pid){
         if (strcmp(permissions, "r--p") != 0 && strcmp(permissions, "r-xp") != 0)
             continue;
 
-        // check elf magic number
-        ElfW(Ehdr) *header = (ElfW(Ehdr) *)region_start;
-        if (memcmp(header->e_ident, ELFMAG, SELFMAG) != 0) {
-            continue;
-        }
 
         char *path_buffer = line_buffer + path_index;
         if (*path_buffer == 0 || *path_buffer == '\n' || *path_buffer == '[')
@@ -139,8 +134,6 @@ static std::vector<RuntimeModule> & getProcessMapWithProcMaps(pid_t pid){
         strncpy(module.path, path_buffer, sizeof(module.path) - 1);
         module.load_address = (void *)region_start;
         modules->push_back(module);
-
-        printf("module: %s", module.path);
     }
 
     fclose(fp);

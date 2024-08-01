@@ -9,7 +9,7 @@ int main(int argc, char *argv[]) {
 
 //    dumpsys package  hepta.rxposed.manager  | grep "userId=" | awk -F'=' '{print $2}'  //返回uid
     // 开始注入
-    // /data/user/0/hepta.rxposed.manager/files/assets/arm64_InjectTool -n zygote64  -so /data/user/0/hepta.rxposed.manager/files/arm64_libnativeloader.so -symbols _Z9Inject_ProcessPKc  10288:hepta.rxposed.manager:hepta.rxposed.manager.Provider                                               <
+    // /arm64_InjectTool -p 1 -so /data/user/0/hepta.rxposed.manager/files/lib/arm64-v8a/libtest.so                                     <
 
     /** 以下是Inject命令行工具的参数
      ** 部分参数选填

@@ -29,22 +29,12 @@ struct process_libs{
 
 __unused __attribute__((constructor(101)))
 void handle_libs(){ // __attribute__((constructor))修饰 最先执行
-    char sdk_ver[32];
-    __system_property_get("ro.build.version.sdk", sdk_ver);
+
 // 系统lib路径
-#if defined(__aarch64__) || defined(__x86_64__)
+    process_libs.libc_path = "/system/lib64/bootstrap/libc.so";
+    process_libs.linker_path = "/system/bin/linker64";
+    process_libs.libdl_path = "/system/lib64/bootstrap/libdl.so";
 
-        process_libs.libc_path = "/system/lib64/libc.so";
-        process_libs.linker_path = "/system/bin/linker64";
-        process_libs.libdl_path = "/system/lib64/bootstrap/libdl.so";
-
-#else
-
-        process_libs.libc_path = "/system/lib64/bootstrap/libc.so";
-        process_libs.linker_path = "/system/bin/bootstrap/linker64";
-        process_libs.libdl_path = "/system/lib64/bootstrap/libdl.so";
-
-#endif
     printf("[+] libc_path is %s\n", process_libs.libc_path);
 //    printf("[+] linker_path is %s\n", process_libs.linker_path);
     printf("[+] libdl_path is %s\n", process_libs.libdl_path);

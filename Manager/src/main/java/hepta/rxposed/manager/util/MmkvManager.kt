@@ -55,12 +55,6 @@ object MmkvManager {
         }
         return list;
     }
-
-
-
-
-
-
     fun getModuleStatus(pkgName:String):Boolean{
         var tmp = getModuleList()
         return tmp.getOrDefault(pkgName,false)

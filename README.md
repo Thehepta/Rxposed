@@ -56,6 +56,7 @@ https://github.com/LSPosed/LSPosed
 
 https://github.com/frida/frida
 
+https://github.com/SsageParuders/AndroidPtraceInject
 
 
 ### License

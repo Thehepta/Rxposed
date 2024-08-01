@@ -2,6 +2,9 @@
 
 ### InjectTool
 
+原项目地址：https://github.com/SsageParuders/AndroidPtraceInject
+我在他的基础上进行的修改
+
 ```
 void *get_remote_func_addr(pid_t pid, const char *ModuleName, void *LocalFuncAddr){
 void *LocalModuleAddr, *RemoteModuleAddr, *RemoteFuncAddr;
@@ -17,6 +20,12 @@ RemoteFuncAddr = (void *)((uintptr_t)LocalFuncAddr - (uintptr_t)LocalModuleAddr 
 }
 
 ```
-
 通过将需要在目标进程中通过ptrace调用的函数，在本进程中计算出基于加载模块的偏移位置,然后获取目标对应加载模块的基址，通过目标模块基址加上函数偏移位置计算出目标进程中函数的地址直接进行调用
-抄的大佬的
+有个问题就是，这个模块必须是本进程已经加载的，否则无法找到。
+
+
+###
+
+
+
+

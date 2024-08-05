@@ -1,6 +1,5 @@
 package hepta.rxposed.manager.util;
 
-import static android.content.Context.MODE_PRIVATE;
 
 import android.content.Context;
 import android.content.Intent;
@@ -35,9 +34,8 @@ public  class InjectTool {
 
 
     static {
-
+        getConfigSave();
         Context context = RxposedApp.getRxposedContext();
-        InjectConfig.su_path = context.getSharedPreferences("rxposed",MODE_PRIVATE).getString("supath","su");
         unziplib(context.getApplicationInfo().sourceDir,context.getFilesDir().getAbsolutePath()+ File.separator);
         String AppFilePath = context.getFilesDir().getAbsolutePath()+ File.separator;
         int App_Uid = RxposedApp.getRxposedContext().getApplicationInfo().uid;
@@ -47,10 +45,11 @@ public  class InjectTool {
 
         InjectConfig.arm64_InjectTool = AppFilePath+InjectConfig.assets_arm64_InjectTool;
         InjectConfig.arm32_InjectTool = AppFilePath+InjectConfig.assets_arm32_InjectTool;
-
-        InjectConfig.appfiles_arm64_InjectSo = AppFilePath+"lib/arm64-v8a/lib"+BuildConfig.Rxposed_Inject_So+".so";
+        String soName = "lib"+BuildConfig.Rxposed_Inject_So+".so";
+        InjectConfig.soName = soName;
+        InjectConfig.appfiles_arm64_InjectSo = AppFilePath+"lib/arm64-v8a/"+soName;
         InjectConfig.arm64_InjectSo = InjectConfig.appfiles_arm64_InjectSo;
-        InjectConfig.appfiles_arm32_InjectSo = AppFilePath+"lib/armeabi-v7a/lib"+BuildConfig.Rxposed_Inject_So+".so";
+        InjectConfig.appfiles_arm32_InjectSo = AppFilePath+"lib/armeabi-v7a/"+soName;
         InjectConfig.arm32_InjectSo = InjectConfig.appfiles_arm32_InjectSo;
 
         try {
@@ -61,6 +60,13 @@ public  class InjectTool {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static void getConfigSave() {
+        InjectConfig.su_path = MmkvManager.INSTANCE.getString("supath","su");
+        InjectConfig.mountWorkDir = MmkvManager.INSTANCE.getString("mountWorkDir","/apex/com.android.i18nrxp");
+        InjectConfig.hidemaps = MmkvManager.INSTANCE.getBoolean("hidemaps",true);
+        InjectConfig.injectInit = MmkvManager.INSTANCE.getBoolean("hidemaps",false);
     }
 
     public static void zygote_reboot() throws IOException {
@@ -83,7 +89,7 @@ public  class InjectTool {
         //修改selinux 规则
         set_selinux_context();
         //ptrace zygote
-        zygote_ptrace_hide_so_maps();
+        zygote_ptrace();
         return  true;
     }
 
@@ -108,11 +114,13 @@ public  class InjectTool {
 
 
     ///data/user/0/hepta.rxposed.manager/files/assets/armv7_InjectTool -n zygote -hidemaps 1 -so /data/user/0/hepta.rxposed.manager/files/lib/armeabi-v7a/librxposed.so -symbols _Z14Ptrace_ZygotesPKc 10288:hepta.rxposed.manager:hepta.rxposed.manager.Provider
-    public static  void zygote_ptrace_hide_so_maps()  {
+    public static  void zygote_ptrace()  {
         //zygote 附加
         String hidemaps = "";
         if (InjectConfig.hidemaps){ //添加maps hide功能，目前可能被放弃
             hidemaps = "-hidemaps";
+        }else {
+            mount_libdir();
         }
         String InjectArg = InjectConfig.InjectArg;
         String cmd_arm64 = InjectConfig.arm64_InjectTool+" -n zygote64 "+ hidemaps + " -so " + InjectConfig.arm64_InjectSo+" -symbols _Z14Ptrace_ZygotesPKc "+InjectArg;
@@ -126,6 +134,24 @@ public  class InjectTool {
         LogFileHelper.writeLog(cmd_arm32);
         String ret_cmd_32 = rootRun(cmd_arm32);
         LogFileHelper.writeLog(ret_cmd_32);
+
+    }
+
+    private static void mount_libdir() {
+
+        InjectConfig.arm32_InjectSo = "/apex/com.android.i18nrxp/lib/"+InjectConfig.soName;
+        InjectConfig.arm64_InjectSo = "/apex/com.android.i18nrxp/lib64/"+InjectConfig.soName;
+        rootRun("mkdir -p /apex/com.android.i18nrxp");
+        rootRun("mount -t tmpfs tmpfs /apex/com.android.i18nrxp");
+        rootRun("chown -R system:system /apex/com.android.i18nrxp");
+        rootRun("chcon -R u:object_r:system_file:s0 /apex/com.android.i18nrxp");
+        rootRun("cp /data/data/hepta.rxposed.manager/files/lib/arm64-v8a /apex/com.android.i18nrxp/lib64  -R");
+        rootRun("cp /data/data/hepta.rxposed.manager/files/lib/armeabi-v7a /apex/com.android.i18nrxp/lib  -R");
+        rootRun("chcon -R u:object_r:system_lib_file:s0 /apex/com.android.i18nrxp/lib");
+        rootRun("chcon -R u:object_r:system_lib_file:s0 /apex/com.android.i18nrxp/lib64");
+        rootRun("chmod 0644 /apex/com.android.i18nrxp/lib64/*");
+        rootRun("chmod 0644 /apex/com.android.i18nrxp/lib/*");
+
 
     }
 

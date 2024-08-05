@@ -22,6 +22,10 @@
 
     </string-array>
 
+    <string-array name="injecttype" translatable="false">
+        <item>hide_maps</item>
+        <item>mount_tmp</item>
+    </string-array>
     <string-array name="nettype" translatable="false">
         <item>IPacket-Forward</item>
         <item>SOCKS5</item>

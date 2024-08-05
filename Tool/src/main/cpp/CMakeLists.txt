@@ -16,7 +16,7 @@ project("InjectTool")
 
 add_subdirectory(InjectTool)
 add_subdirectory(initInjectTool)
-#add_subdirectory(mprop)
+add_subdirectory(initInjectLib)
 
 #add_library( # Sets the name of the library.
 #        rxposedtool

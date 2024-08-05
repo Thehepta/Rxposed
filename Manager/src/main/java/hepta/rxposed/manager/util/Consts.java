@@ -12,6 +12,9 @@ public class Consts {
     public static final int MODULE_TYPE_DEPEND = 3;
     public static final int MODULE_TYPE_APP = 4;
 
+    public static final int MOUNT_TMP = 1;
+    public static final int HIDE_MAPS = 2;
+
 
     public static final String INJECT_FRAGMENT_ARGE = "injectProcess";
     public static final String INJECTLIST_FRAGMENT_ARGE = "injectList";

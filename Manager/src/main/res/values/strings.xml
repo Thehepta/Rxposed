@@ -73,4 +73,6 @@
     <string name="server_lab_address">address</string>
     <string name="server_lab_port">port</string>
     <string name="server_lab_NetWork_Type">NetWork Type</string>
+    <string name="So_Inject_Type">so inject type</string>
+    <string name="mount_tmp">mount tmp workdir</string>
 </resources>

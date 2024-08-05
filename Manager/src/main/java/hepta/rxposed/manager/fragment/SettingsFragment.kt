@@ -24,13 +24,14 @@ import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.Spinner
 import androidx.core.view.MenuHost
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import hepta.rxposed.manager.R
 import hepta.rxposed.manager.util.InjectConfig
-import hepta.rxposed.manager.util.LogFileHelper
 
 /**
  * A simple [Fragment] subclass.
@@ -49,7 +50,7 @@ class SettingsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-
+        init_ui()
         val menuHost: MenuHost = requireActivity()
         menuHost.addMenuProvider(object : MenuProvider {
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
@@ -71,8 +72,18 @@ class SettingsFragment : Fragment() {
 
         },viewLifecycleOwner, Lifecycle.State.RESUMED)
 
+    }
 
-
+    private fun init_ui() {
+        val inject_type = view?.findViewById<Spinner>(R.id.inject_type)
+        val mountPath = view?.findViewById<EditText>(R.id.mount_path)
+        mountPath?.setText(InjectConfig.mountWorkDir)
+        if (InjectConfig.hidemaps){
+            inject_type?.setSelection(0)
+        }else{
+            inject_type?.setSelection(1)
+        }
+        return
     }
 
 }

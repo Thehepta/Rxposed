@@ -37,11 +37,17 @@ public class CheckTool {
 
 
     public static boolean get_rxposed_status(){
-        int zygote_host_uid = Process.getUidForName(InjectConfig.InjectArg);
-        if(zygote_host_uid!=-1){
-            return true;
+        boolean status = false;
+        try {
+            int zygote_host_uid = Process.getUidForName(InjectConfig.InjectArg);
+            if(zygote_host_uid!=-1){
+                status = true;
+            }
+            return status;
+        }catch (Exception e){
+            e.printStackTrace();
+            return status;
         }
-        return false;
     }
 
     public  boolean check_jni_hook() {

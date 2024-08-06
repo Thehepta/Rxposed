@@ -26,10 +26,9 @@
         <item>hide_maps</item>
         <item>mount_tmp</item>
     </string-array>
-    <string-array name="nettype" translatable="false">
-        <item>IPacket-Forward</item>
-        <item>SOCKS5</item>
-        <item>HTTP-PROXY</item>
+    <string-array name="Is_initInject" translatable="false">
+        <item>false</item>
+        <item>true</item>
     </string-array>
 
 </resources>

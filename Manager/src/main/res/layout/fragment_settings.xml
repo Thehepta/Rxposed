@@ -72,7 +72,7 @@
                 android:text="@string/mount_tmp" />
 
             <EditText
-                android:id="@+id/mount_path"
+                android:id="@+id/et_mount_path"
                 android:layout_width="match_parent"
                 android:layout_height="@dimen/edit_height"
                 android:inputType="text" />
@@ -88,10 +88,44 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/server_lab_port" />
+                android:text="@string/lib_path" />
 
             <EditText
-                android:id="@+id/et_port"
+                android:id="@+id/et_lib_path"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/edit_height"
+                android:inputType="number" />
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/layout_margin_top_height"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/lib64_path" />
+
+            <EditText
+                android:id="@+id/et_lib64_path"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/edit_height"
+                android:inputType="number" />
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/layout_margin_top_height"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/InjectArg" />
+
+            <EditText
+                android:id="@+id/et_inject_arg"
                 android:layout_width="match_parent"
                 android:layout_height="@dimen/edit_height"
                 android:inputType="number" />
@@ -107,36 +141,14 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/server_lab_NetWork_Type" />
+                android:text="@string/initInject" />
 
             <Spinner
-                android:id="@+id/sp_nettype"
+                android:id="@+id/sp_initInject"
                 android:layout_width="match_parent"
                 android:layout_height="@dimen/edit_height"
-                android:entries="@array/nettype" />
+                android:entries="@array/Is_initInject" />
         </LinearLayout>
-
-
-
-
-        <!--        <LinearLayout-->
-        <!--            android:layout_width="match_parent"-->
-        <!--            android:layout_height="wrap_content"-->
-        <!--            android:layout_marginTop="@dimen/layout_margin_top_height"-->
-        <!--            android:orientation="vertical">-->
-
-        <!--            <TextView-->
-        <!--                android:layout_width="wrap_content"-->
-        <!--                android:layout_height="wrap_content"-->
-        <!--                android:text="@string/server_lab_filterApp" />-->
-
-        <!--            <Spinner-->
-        <!--                android:id="@+id/sp_filterApp"-->
-        <!--                android:layout_width="match_parent"-->
-        <!--                android:layout_height="@dimen/edit_height"-->
-        <!--                android:entries="@array/filterApp" />-->
-        <!--        </LinearLayout>-->
-
 
     </LinearLayout>
 </ScrollView>

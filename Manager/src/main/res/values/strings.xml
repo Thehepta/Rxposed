@@ -75,4 +75,8 @@
     <string name="server_lab_NetWork_Type">NetWork Type</string>
     <string name="So_Inject_Type">so inject type</string>
     <string name="mount_tmp">mount tmp workdir</string>
+    <string name="lib_path">lib_path</string>
+    <string name="lib64_path">lib64_path</string>
+    <string name="InjectArg">inject argument</string>
+    <string name="initInject">initInject</string>
 </resources>

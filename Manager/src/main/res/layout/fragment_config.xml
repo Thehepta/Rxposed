@@ -90,11 +90,6 @@
                 android:layout_height="wrap_content"
                 android:text="@string/server_lab_NetWork_Type" />
 
-            <Spinner
-                android:id="@+id/sp_nettype"
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/edit_height"
-                android:entries="@array/nettype" />
         </LinearLayout>
 
 

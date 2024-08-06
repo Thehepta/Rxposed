@@ -76,13 +76,27 @@ class SettingsFragment : Fragment() {
 
     private fun init_ui() {
         val inject_type = view?.findViewById<Spinner>(R.id.inject_type)
-        val mountPath = view?.findViewById<EditText>(R.id.mount_path)
-        mountPath?.setText(InjectConfig.mountWorkDir)
         if (InjectConfig.hidemaps){
             inject_type?.setSelection(0)
         }else{
             inject_type?.setSelection(1)
         }
+        if (InjectConfig.injectInit){
+            inject_type?.setSelection(0)
+        }else{
+            inject_type?.setSelection(1)
+        }
+        val mountPath = view?.findViewById<EditText>(R.id.et_mount_path)
+        val remarks = view?.findViewById<EditText>(R.id.et_remarks)
+        val libPath = view?.findViewById<EditText>(R.id.et_lib_path)
+        val lib64Path = view?.findViewById<EditText>(R.id.et_lib64_path)
+        val injectArg = view?.findViewById<EditText>(R.id.et_inject_arg)
+        remarks?.setText(InjectConfig.config_name)
+        mountPath?.setText(InjectConfig.mountWorkDir)
+        libPath?.setText(InjectConfig.arm32_InjectSo)
+        lib64Path?.setText(InjectConfig.arm64_InjectSo)
+        injectArg?.setText(InjectConfig.InjectArg)
+
         return
     }
 
